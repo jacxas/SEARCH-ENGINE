@@ -1,0 +1,6 @@
+{
+  "name": "Nexus Web Search Portal",
+  "description": "An independent web search portal with multi-strategy query expansion, source normalization, deduplication, and evidence metrics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
