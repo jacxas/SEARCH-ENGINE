@@ -1,13 +1,9 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { analyzeAndExpandQuery } from "./src/search/engine/queryEngine";
 import { providerRegistry } from "./src/search/providers/registry";
-import { normalizeResult } from "./src/search/normalizer/normalizer";
-import { classifyResult } from "./src/search/classifier/classifier";
-import { deduplicateResults } from "./src/search/deduplicator/deduplicator";
-import { calculateEvidenceScores, calculateMetricsSummary } from "./src/search/evidence/evidenceEngine";
-import { SearchEvent, SearchRequestPayload, SearchResponsePayload } from "./src/types";
+import { runSearch } from "./src/search/engine/runSearch";
+import { SearchEvent, SearchRequestPayload } from "./src/types";
 
 // In-memory observability and analytics store
 const searchHistoryEvents: SearchEvent[] = [];
@@ -55,7 +51,6 @@ async function startServer() {
 
   // Main Search API Endpoint
   app.post("/api/search", async (req, res) => {
-    const startTime = Date.now();
     try {
       const payload: SearchRequestPayload = req.body;
       const query = (payload.query || '').trim();
@@ -65,66 +60,9 @@ async function startServer() {
         return res.status(400).json({ error: "Query is required" });
       }
 
-      // 1. Query Analysis & Expansion
-      const analysis = analyzeAndExpandQuery(query, mode);
-
-      // 2. Execute Multi-Provider Search
-      const providerRes = await providerRegistry.executeSearch(query, mode, analysis.variants);
-
-      // 3. Normalize Results & Classify
-      const normalizedResults = providerRes.results.map((r, idx) => {
-        const norm = normalizeResult(r, idx);
-        const sourceType = classifyResult(norm.url, norm.title, norm.snippet || '', norm.sourceProvider);
-        return {
-          ...norm,
-          sourceType
-        };
-      });
-
-      // 4. Evidence Scoring
-      const scoredResults = calculateEvidenceScores(normalizedResults, query);
-
-      // 5. Deduplicate Results
-      const { uniqueResults, duplicateGroups } = deduplicateResults(scoredResults);
-
-      // 6. Calculate Metrics Summary
-      const durationMs = Date.now() - startTime;
-      const metrics = calculateMetricsSummary(
-        scoredResults,
-        uniqueResults,
-        duplicateGroups.length,
-        durationMs,
-        providerRes.providersUsed.length,
-        analysis.variants.length
-      );
-
-      // 7. Log Search Observability Event
-      const searchEvent: SearchEvent = {
-        id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        query,
-        mode,
-        timestamp: new Date().toISOString(),
-        providersUsed: providerRes.providersUsed,
-        queryVariants: analysis.variants,
-        resultsCollected: scoredResults.length,
-        uniqueResults: uniqueResults.length,
-        duplicateGroups: duplicateGroups.length,
-        durationMs,
-        errors: providerRes.errors
-      };
-
-      searchHistoryEvents.push(searchEvent);
+      const responsePayload = await runSearch(query, mode);
+      searchHistoryEvents.push(responsePayload.events);
       totalSearchesCount++;
-
-      const responsePayload: SearchResponsePayload = {
-        query,
-        mode,
-        metrics,
-        results: uniqueResults,
-        duplicateGroups,
-        events: searchEvent,
-        errors: providerRes.errors
-      };
 
       res.json(responsePayload);
     } catch (error: any) {
