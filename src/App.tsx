@@ -27,7 +27,7 @@ export default function App() {
           { id: 'web-general', name: 'General Web Index', active: true, status: 'healthy', lastChecked: new Date().toISOString(), errorCount: 0, latencyMs: 140, supportedModes: ['web', 'deep'] },
           { id: 'tech-github', name: 'Technical & Developer Index', active: true, status: 'healthy', lastChecked: new Date().toISOString(), errorCount: 0, latencyMs: 180, supportedModes: ['deep', 'technical'] },
           { id: 'community-discussions', name: 'Community Discussions', active: true, status: 'healthy', lastChecked: new Date().toISOString(), errorCount: 0, latencyMs: 160, supportedModes: ['deep', 'community'] },
-          { id: 'doc-papers-manuals', name: 'Documents & Manuals', active: true, status: 'healthy', lastChecked: new Date().toISOString(), errorCount: 0, latencyMs: 190, supportedModes: ['documents', 'deep'] }
+          { id: 'doc-papers-manuals', name: 'Documents & Manuals', active: true, status: 'healthy', lastChecked: new Date().toISOString(), errorCount: 0, latencyMs: 190, supportedModes: ['documents', 'academic'] },
         ]);
       });
   }, []);
