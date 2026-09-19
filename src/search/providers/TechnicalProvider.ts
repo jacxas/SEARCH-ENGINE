@@ -66,28 +66,8 @@ export class TechnicalProvider implements SearchProvider {
     } catch (err) {
       this.errorCount++;
       this.lastLatency = Date.now() - startTime;
-      return this.getFallbackResults(query, variant);
+      return [];
     }
   }
-
-  private getFallbackResults(query: string, variant: string): SearchResult[] {
-    return [
-      normalizeResult({
-        title: `github.com/topics/${encodeURIComponent(query)}`,
-        url: `https://github.com/search?q=${encodeURIComponent(query)}`,
-        snippet: `Explore repositories, issues, discussions, and code snippets matching ${query} across GitHub.`,
-        sourceProvider: this.name,
-        sourceType: 'technical',
-        queryVariantUsed: variant
-      }, 0),
-      normalizeResult({
-        title: `Stack Overflow: Troubleshooting ${query}`,
-        url: `https://stackoverflow.com/search?q=${encodeURIComponent(query)}`,
-        snippet: `Developer Q&A discussion covering common compilation errors, edge cases, and solutions for ${query}.`,
-        sourceProvider: this.name,
-        sourceType: 'technical',
-        queryVariantUsed: variant
-      }, 1)
-    ];
-  }
 }
+

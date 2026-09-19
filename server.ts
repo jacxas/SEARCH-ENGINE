@@ -49,6 +49,31 @@ async function startServer() {
     });
   });
 
+  // Query Suggestion / Autocomplete Endpoint
+  app.get("/api/suggest", (req, res) => {
+    const q = (req.query.q as string || '').trim().toLowerCase();
+    if (!q || q.length < 2) {
+      return res.json({ suggestions: [] });
+    }
+
+    const baselineSuggestions = [
+      `${q} best practices and architecture`,
+      `${q} benchmark performance metrics`,
+      `${q} tutorial and implementation guide`,
+      `advanced troubleshooting for ${q}`,
+      `${q} vs alternative solutions comparison`,
+      `${q} security and concurrency considerations`
+    ];
+
+    const historical = searchHistoryEvents
+      .map(e => e.query)
+      .filter(hist => hist.toLowerCase().includes(q) && hist.toLowerCase() !== q);
+
+    const combined = Array.from(new Set([...historical, ...baselineSuggestions])).slice(0, 6);
+    res.json({ suggestions: combined });
+  });
+
+
   // Main Search API Endpoint
   app.post("/api/search", async (req, res) => {
     try {

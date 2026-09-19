@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, ArrowRight, ShieldCheck, Layers, Cpu, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, ArrowRight, ShieldCheck, Layers, Cpu, Sparkles, TrendingUp } from 'lucide-react';
 import { SearchMode } from '../types';
 
 interface LandingViewProps {
@@ -10,10 +10,50 @@ interface LandingViewProps {
 export const LandingView: React.FC<LandingViewProps> = ({ onSearch, onNavigate }) => {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('deep');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debounced autocomplete suggestion fetch
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(trimmed)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions(true);
+        }
+      } catch (err) {
+        // Silently handle suggestion network errors
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      setShowSuggestions(false);
       onSearch(query, mode);
     }
   };
@@ -43,27 +83,60 @@ export const LandingView: React.FC<LandingViewProps> = ({ onSearch, onNavigate }
         Bypass single-index walled gardens. Nexus queries multiple specialist providers, normalizes results, eliminates duplicates, and computes verifiable evidence metrics.
       </p>
 
-      {/* Main Search Box */}
-      <form onSubmit={handleFormSubmit} className="w-full max-w-2xl mb-6">
-        <div className="relative flex items-center bg-zinc-900/90 border border-zinc-700/80 rounded-2xl shadow-2xl p-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-          <Search className="w-5 h-5 text-zinc-400 ml-3 shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search web, technical docs, research papers, discussions..."
-            className="w-full bg-transparent border-none outline-none text-white px-3 py-3 text-base placeholder-zinc-500 font-sans"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={!query.trim()}
-            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-medium text-sm transition-all flex items-center space-x-2 shrink-0 shadow-lg shadow-indigo-600/20 cursor-pointer"
-          >
-            <span>Search</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Main Search Box with Autocomplete Dropdown */}
+      <div ref={containerRef} className="w-full max-w-2xl relative mb-6">
+        <form onSubmit={handleFormSubmit}>
+          <div className="relative flex items-center bg-zinc-900/90 border border-zinc-700/80 rounded-2xl shadow-2xl p-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+            <Search className="w-5 h-5 text-zinc-400 ml-3 shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => {
+                if (suggestions.length > 0) setShowSuggestions(true);
+              }}
+              placeholder="Search web, technical docs, research papers, discussions..."
+              className="w-full bg-transparent border-none outline-none text-white px-3 py-3 text-base placeholder-zinc-500 font-sans"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={!query.trim()}
+              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-medium text-sm transition-all flex items-center space-x-2 shrink-0 shadow-lg shadow-indigo-600/20 cursor-pointer"
+            >
+              <span>Search</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+        {/* Real-time Autocomplete Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute left-0 right-0 top-full mt-2 bg-zinc-900/95 border border-zinc-700/80 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-md text-left divide-y divide-zinc-800 animate-fade-in">
+            <div className="px-4 py-2 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase bg-zinc-950/60 flex items-center space-x-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Real-time Autocompletions & Intent Suggestions</span>
+            </div>
+            {suggestions.map((sug, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setQuery(sug);
+                  setShowSuggestions(false);
+                  onSearch(sug, mode);
+                }}
+                className="w-full px-4 py-3 text-sm text-zinc-200 hover:bg-indigo-600/20 hover:text-white flex items-center justify-between transition-colors text-left group"
+              >
+                <div className="flex items-center space-x-3">
+                  <Search className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+                  <span className="font-medium">{sug}</span>
+                </div>
+                <span className="text-xs text-zinc-400 group-hover:text-indigo-300 transition-colors">Press to search</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Mode Selector Pills */}
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
@@ -82,7 +155,7 @@ export const LandingView: React.FC<LandingViewProps> = ({ onSearch, onNavigate }
             </button>
           ))}
         </div>
-      </form>
+      </div>
 
       {/* Quick Sample Queries */}
       <div className="flex flex-wrap items-center justify-center gap-2 mb-16 text-xs text-zinc-400">
@@ -136,3 +209,4 @@ export const LandingView: React.FC<LandingViewProps> = ({ onSearch, onNavigate }
     </div>
   );
 };
+

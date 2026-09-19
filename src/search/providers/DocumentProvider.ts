@@ -4,7 +4,7 @@ import { normalizeResult } from '../normalizer/normalizer';
 
 export class DocumentProvider implements SearchProvider {
   id = 'doc-papers-manuals';
-  name = 'Documents & Manuals Index (arXiv & Specs)';
+  name = 'Documents & Manuals Index (Crossref & arXiv)';
   private errorCount = 0;
   private lastLatency = 190;
 
@@ -31,10 +31,52 @@ export class DocumentProvider implements SearchProvider {
 
   async search(query: string, mode: SearchMode, variant: string): Promise<SearchResult[]> {
     const startTime = Date.now();
+    const encoded = encodeURIComponent(variant || query);
+
+    // 1. Try Crossref API for authoritative documents, papers, manuals, and technical reports
     try {
-      const encoded = encodeURIComponent(variant || query);
+      const url = `https://api.crossref.org/works?query=${encoded}&rows=6`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'NexusSearchPortal/1.0 (mailto:support@nexussearch.org)' }
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.message?.items || [];
+        if (items.length > 0) {
+          const results: SearchResult[] = items.map((item: any, idx: number) => {
+            const title = Array.isArray(item.title) && item.title.length > 0 ? item.title[0] : `Document on ${query}`;
+            const docUrl = item.URL || `https://doi.org/${item.DOI}`;
+            const publisher = item.publisher || 'Crossref Document Index';
+            const year = item.created?.['date-parts']?.[0]?.[0] || 'Recent';
+
+            return normalizeResult({
+              title: `[Document / Report (${year})] ${title}`,
+              url: docUrl,
+              snippet: `Published by ${publisher} in ${year}. Authoritative document reference indexed via Crossref.`,
+              sourceProvider: this.name,
+              sourceType: 'document',
+              publishedAt: item.created?.['date-parts']?.[0] ? `${item.created['date-parts'][0][0]}-${String(item.created['date-parts'][0][1] || 1).padStart(2, '0')}-${String(item.created['date-parts'][0][2] || 1).padStart(2, '0')}` : undefined,
+              queryVariantUsed: variant
+            }, idx);
+          });
+
+          this.lastLatency = Date.now() - startTime;
+          return results;
+        }
+      }
+    } catch (err) {
+      // Crossref failed, fall back to arXiv API below
+    }
+
+    // 2. Fallback to arXiv API for research preprints and technical whitepapers
+    try {
       const url = `https://export.arxiv.org/api/query?search_query=all:${encoded}&max_results=5`;
-      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4500);
 
@@ -46,7 +88,6 @@ export class DocumentProvider implements SearchProvider {
       }
 
       const xmlText = await res.text();
-      // Simple lightweight xml entry parser without external heavy dependencies
       const entryMatches = xmlText.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
       const results: SearchResult[] = [];
 
@@ -62,7 +103,7 @@ export class DocumentProvider implements SearchProvider {
         const published = publishedMatch ? publishedMatch[1].split('T')[0] : undefined;
 
         results.push(normalizeResult({
-          title: `[PDF / Paper] ${title}`,
+          title: `[arXiv Paper] ${title}`,
           url: link,
           snippet: summary.slice(0, 200) + '...',
           sourceProvider: this.name,
@@ -73,32 +114,13 @@ export class DocumentProvider implements SearchProvider {
       });
 
       this.lastLatency = Date.now() - startTime;
-      return results.length > 0 ? results : this.getFallbackResults(query, variant);
+      return results;
     } catch (err) {
       this.errorCount++;
       this.lastLatency = Date.now() - startTime;
-      return this.getFallbackResults(query, variant);
+      return [];
     }
   }
-
-  private getFallbackResults(query: string, variant: string): SearchResult[] {
-    return [
-      normalizeResult({
-        title: `Official Technical Specification & Architecture Manual: ${query}`,
-        url: `https://ietf.org/specs/rfc-${Math.floor(1000 + Math.random() * 8999)}.pdf`,
-        snippet: `Standardized technical specification document outlining protocol requirements, security considerations, and API parameters for ${query}.`,
-        sourceProvider: this.name,
-        sourceType: 'document',
-        queryVariantUsed: variant
-      }, 0),
-      normalizeResult({
-        title: `Comprehensive Developer Whitepaper (${query})`,
-        url: `https://www.w3.org/standards/whitepaper-${encodeURIComponent(query)}.pdf`,
-        snippet: `Authoritative reference manual and implementation standards for engineering teams working with ${query}.`,
-        sourceProvider: this.name,
-        sourceType: 'document',
-        queryVariantUsed: variant
-      }, 1)
-    ];
-  }
 }
+
+

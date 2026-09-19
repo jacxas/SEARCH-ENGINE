@@ -4,7 +4,7 @@ import { normalizeResult } from '../normalizer/normalizer';
 
 export class CommunityProvider implements SearchProvider {
   id = 'community-discussions';
-  name = 'Community & Forums Index (Reddit / HN)';
+  name = 'Community & Forums Index (Hacker News)';
   private errorCount = 0;
   private lastLatency = 160;
 
@@ -33,64 +33,45 @@ export class CommunityProvider implements SearchProvider {
     const startTime = Date.now();
     try {
       const encoded = encodeURIComponent(variant || query);
-      const url = `https://www.reddit.com/search.json?q=${encoded}&limit=6`;
+      const url = `https://hn.algolia.com/api/v1/search?query=${encoded}&tags=story&hitsPerPage=6`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
 
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { 'User-Agent': 'NexusSearchPortal/1.0' }
-      });
+      const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!res.ok) {
-        throw new Error(`Reddit API HTTP error ${res.status}`);
+        throw new Error(`Algolia HN API HTTP error ${res.status}`);
       }
 
       const data = await res.json();
-      const children = data.data?.children || [];
+      const hits = data.hits || [];
 
-      const results: SearchResult[] = children.map((item: any, idx: number) => {
-        const post = item.data;
+      const results: SearchResult[] = hits.map((hit: any, idx: number) => {
+        const itemUrl = hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`;
+        const points = hit.points || 0;
+        const comments = hit.num_comments || 0;
+        const dateStr = hit.created_at ? hit.created_at.split('T')[0] : undefined;
+
         return normalizeResult({
-          title: post.title || `Discussion on ${query}`,
-          url: `https://reddit.com${post.permalink}`,
-          snippet: post.selftext ? post.selftext.slice(0, 180) + '...' : `Community thread in r/${post.subreddit} with ${post.num_comments} comments and ${post.score} upvotes.`,
+          title: hit.title || `Hacker News Discussion on ${query}`,
+          url: itemUrl,
+          snippet: `Hacker News discussion with ${points} points and ${comments} comments regarding ${query}.`,
           sourceProvider: this.name,
           sourceType: 'community',
-          publishedAt: new Date(post.created_utc * 1000).toISOString().split('T')[0],
+          publishedAt: dateStr,
           queryVariantUsed: variant
         }, idx);
       });
 
       this.lastLatency = Date.now() - startTime;
-      return results.length > 0 ? results : this.getFallbackResults(query, variant);
+      return results;
     } catch (err) {
       this.errorCount++;
       this.lastLatency = Date.now() - startTime;
-      return this.getFallbackResults(query, variant);
+      return [];
     }
   }
-
-  private getFallbackResults(query: string, variant: string): SearchResult[] {
-    return [
-      normalizeResult({
-        title: `Hacker News Discussion: ${query}`,
-        url: `https://news.ycombinator.com/item?id=38192841`,
-        snippet: `Community engineering discussion evaluating trade-offs, architecture experiences, and tips regarding ${query}.`,
-        sourceProvider: this.name,
-        sourceType: 'community',
-        queryVariantUsed: variant
-      }, 0),
-      normalizeResult({
-        title: `Reddit r/webdev: Best practices for ${query}`,
-        url: `https://www.reddit.com/r/webdev/search/?q=${encodeURIComponent(query)}`,
-        snippet: `Real-world developer feedback, troubleshooting tips, and advice shared by community practitioners.`,
-        sourceProvider: this.name,
-        sourceType: 'community',
-        queryVariantUsed: variant
-      }, 1)
-    ];
-  }
 }
+
