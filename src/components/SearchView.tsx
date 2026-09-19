@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Filter, ShieldCheck, ExternalLink, RefreshCw, Cpu, Layers, AlertTriangle, ChevronDown, CheckSquare, Square } from 'lucide-react';
+import { Search, Filter, ShieldCheck, ExternalLink, RefreshCw, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { SearchMode, SearchResponsePayload, SearchResult, ProviderStatus, SourceType } from '../types';
 import { TransparencyModal } from './TransparencyModal';
 
 interface SearchViewProps {
   searchData: SearchResponsePayload | null;
   isLoading: boolean;
+  searchError?: string | null;
   onExecuteSearch: (query: string, mode: SearchMode) => void;
   providerStatuses: ProviderStatus[];
 }
 
-export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, onExecuteSearch, providerStatuses }) => {
+export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, searchError, onExecuteSearch, providerStatuses }) => {
   const [queryInput, setQueryInput] = useState(searchData?.query || '');
   const [selectedMode, setSelectedMode] = useState<SearchMode>(searchData?.mode || 'deep');
-  
-  // Filters
+
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<Record<SourceType, boolean>>({
     web: true,
     technical: true,
@@ -46,7 +46,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
 
   return (
     <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
-      {/* Search Header Bar */}
       <form onSubmit={handleSearchSubmit} className="mb-8">
         <div className="flex flex-col md:flex-row items-center gap-3">
           <div className="relative flex items-center w-full bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-xl p-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
@@ -68,7 +67,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
           </div>
         </div>
 
-        {/* Mode Selector */}
         <div className="flex flex-wrap items-center gap-2 mt-4">
           <span className="text-xs text-zinc-400 font-medium mr-1">Mode:</span>
           {(['web', 'deep', 'documents', 'technical', 'community', 'academic'] as SearchMode[]).map((m) => (
@@ -93,7 +91,13 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
         </div>
       </form>
 
-      {/* Errors banner if any */}
+      {searchError && !isLoading && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm flex items-center space-x-3">
+          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+          <span>Search failed: {searchError}</span>
+        </div>
+      )}
+
       {searchData?.errors && searchData.errors.length > 0 && (
         <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center space-x-3">
           <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
@@ -104,11 +108,8 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
         </div>
       )}
 
-      {/* Main Content Grid: Sidebar Filters + Results + Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Left Sidebar: Filters & Provider Status */}
         <div className="space-y-6 lg:col-span-1">
-          {/* Filters Card */}
           <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
             <div className="flex items-center space-x-2 text-white font-semibold text-sm pb-3 border-b border-zinc-800">
               <Filter className="w-4 h-4 text-indigo-400" />
@@ -150,7 +151,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
             </div>
           </div>
 
-          {/* Search Providers Status */}
           <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
               <span className="text-white font-semibold text-sm">Search Sources</span>
@@ -170,9 +170,7 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
           </div>
         </div>
 
-        {/* Center/Right: Results & Metrics Summary */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Search Metrics Bar */}
           {searchData && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center">
               <div>
@@ -194,7 +192,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
             </div>
           )}
 
-          {/* Results List */}
           {isLoading ? (
             <div className="py-20 text-center space-y-4">
               <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
@@ -271,7 +268,6 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, o
         </div>
       </div>
 
-      {/* Transparency Modal */}
       <TransparencyModal
         result={selectedResultForTransparency}
         onClose={() => setSelectedResultForTransparency(null)}
