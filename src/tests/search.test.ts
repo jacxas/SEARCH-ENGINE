@@ -58,13 +58,14 @@ export function runBasicTests() {
   console.log('All search engine tests passed successfully!');
 }
 
-// Automatically execute tests in development or test runs
-try {
-  runBaseTestsSafely();
-} catch (e) {
-  console.error('Test execution error:', e);
-}
-
-function runBaseTestsSafely() {
-  runBasicTests();
+// Auto-execute only when this file is run directly (e.g. `tsx src/tests/search.test.ts`),
+// not when imported by the test runner (src/tests/run.ts).
+const isDirectRun = !!process.argv[1] && process.argv[1].endsWith('search.test.ts');
+if (isDirectRun) {
+  try {
+    runBasicTests();
+  } catch (e) {
+    console.error('Test execution error:', e);
+    process.exitCode = 1;
+  }
 }

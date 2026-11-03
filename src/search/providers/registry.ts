@@ -4,6 +4,7 @@ import { TechnicalProvider } from './TechnicalProvider';
 import { CommunityProvider } from './CommunityProvider';
 import { DocumentProvider } from './DocumentProvider';
 import { AcademicProvider } from './AcademicProvider';
+import { generateMockResults } from './mockData';
 import { SearchMode, SearchResult, ProviderStatus } from '../../types';
 
 class ProviderRegistry {
@@ -20,7 +21,11 @@ class ProviderRegistry {
   }
 
   getStatuses(): ProviderStatus[] {
-    return this.providers.map(p => p.getStatus());
+    const useMock = process.env.SEARCH_MOCK === 'true';
+    return this.providers.map(p => {
+      const status = p.getStatus();
+      return useMock ? { ...status, status: 'mock' as const } : status;
+    });
   }
 
   async executeSearch(query: string, mode: SearchMode, variants: string[]): Promise<{ results: SearchResult[]; errors: string[]; providersUsed: string[] }> {
@@ -34,13 +39,18 @@ class ProviderRegistry {
     // Fallback if none match
     const targetProviders = activeProviders.length > 0 ? activeProviders : this.providers;
 
+    // SEARCH_MOCK=true swaps live providers for deterministic mock data (offline/tests/demo)
+    const useMock = process.env.SEARCH_MOCK === 'true';
+
     // Run searches in parallel across providers and variants
     const promises = targetProviders.map(async provider => {
       providersUsedSet.add(provider.name);
       try {
         // Use top variant or primary query
         const variantToUse = variants[0] || query;
-        const provResults = await provider.search(query, mode, variantToUse);
+        const provResults = useMock
+          ? generateMockResults(provider.id, provider.name, query, variantToUse, provider.capabilities().maxResultsPerQuery)
+          : await provider.search(query, mode, variantToUse);
         return provResults;
       } catch (err: any) {
         errors.push(`${provider.name} unavailable: ${err.message || 'Timeout'}`);
