@@ -32,7 +32,7 @@ export default function App() {
       });
   }, []);
 
-  const executeSearch = async (query: string, mode: SearchMode) => {
+  const executeSearch = async (query: string, mode: SearchMode, page: number = 1, pageSize: number = 20) => {
     setCurrentTab('search');
     setIsLoading(true);
 
@@ -40,7 +40,7 @@ export default function App() {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, mode })
+        body: JSON.stringify({ query, mode, page, pageSize })
       });
 
       if (!res.ok) {
@@ -76,7 +76,7 @@ export default function App() {
           <SearchView
             searchData={searchData}
             isLoading={isLoading}
-            onExecuteSearch={(q, m) => executeSearch(q, m)}
+            onExecuteSearch={(q, m, p, ps) => executeSearch(q, m, p, ps)}
             providerStatuses={providerStatuses}
           />
         )}

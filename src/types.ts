@@ -1,5 +1,11 @@
 export type SearchMode = 'web' | 'deep' | 'documents' | 'technical' | 'community' | 'academic';
 
+export const SEARCH_MODES: SearchMode[] = ['web', 'deep', 'documents', 'technical', 'community', 'academic'];
+
+export function isSearchMode(value: unknown): value is SearchMode {
+  return typeof value === 'string' && (SEARCH_MODES as string[]).includes(value);
+}
+
 export type SourceType = 'web' | 'document' | 'technical' | 'community' | 'academic' | 'news' | 'other';
 
 export interface SearchResult {
@@ -83,6 +89,16 @@ export interface ProductAnalytics {
 export interface SearchRequestPayload {
   query: string;
   mode?: SearchMode;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalResults: number;
+  totalPages: number;
+  hasMore: boolean;
 }
 
 export interface SearchResponsePayload {
@@ -93,4 +109,6 @@ export interface SearchResponsePayload {
   duplicateGroups: DuplicateGroup[];
   events: SearchEvent;
   errors: string[];
+  fromCache?: boolean; // true when served from the in-memory search cache (server.ts)
+  pagination?: PaginationInfo; // present when the response was paginated
 }

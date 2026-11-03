@@ -12,6 +12,9 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Allow the Arena live-preview host (e.g. 3000-<id>.e2b.app) to reach the dev server.
+      allowedHosts: true as const,
+      host: '0.0.0.0',
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

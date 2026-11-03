@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, ShieldCheck, ExternalLink, RefreshCw, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { Search, Filter, ShieldCheck, ExternalLink, RefreshCw, AlertTriangle, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SearchMode, SearchResponsePayload, SearchResult, ProviderStatus, SourceType } from '../types';
 import { TransparencyModal } from './TransparencyModal';
 
@@ -7,7 +7,7 @@ interface SearchViewProps {
   searchData: SearchResponsePayload | null;
   isLoading: boolean;
   searchError?: string | null;
-  onExecuteSearch: (query: string, mode: SearchMode) => void;
+  onExecuteSearch: (query: string, mode: SearchMode, page?: number, pageSize?: number) => void;
   providerStatuses: ProviderStatus[];
 }
 
@@ -26,11 +26,28 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, s
   });
   const [uniqueOnly, setUniqueOnly] = useState(false);
   const [selectedResultForTransparency, setSelectedResultForTransparency] = useState<SearchResult | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const pagination = searchData?.pagination;
+
+  const runSearch = (p: number, ps: number) => {
+    if (queryInput.trim()) {
+      setPage(p);
+      onExecuteSearch(queryInput.trim(), selectedMode, p, ps);
+    }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    runSearch(1, pageSize);
+  };
+
+  const changePageSize = (ps: number) => {
+    setPageSize(ps);
     if (queryInput.trim()) {
-      onExecuteSearch(queryInput.trim(), selectedMode);
+      setPage(1);
+      onExecuteSearch(queryInput.trim(), selectedMode, 1, ps);
     }
   };
 
@@ -76,7 +93,8 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, s
               onClick={() => {
                 setSelectedMode(m);
                 if (queryInput.trim()) {
-                  onExecuteSearch(queryInput.trim(), m);
+                  setPage(1);
+                  onExecuteSearch(queryInput.trim(), m, 1, pageSize);
                 }
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all uppercase tracking-wider ${
@@ -263,6 +281,42 @@ export const SearchView: React.FC<SearchViewProps> = ({ searchData, isLoading, s
                   </div>
                 </div>
               ))}
+
+              {pagination && (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-zinc-800/80">
+                  <span className="text-xs text-zinc-400">
+                    Page <strong className="text-white">{pagination.page}</strong> of {pagination.totalPages} · {pagination.totalResults} unique results
+                    {searchData?.fromCache && <span className="ml-2 text-emerald-400">(cached)</span>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isLoading || pagination.page <= 1}
+                      onClick={() => runSearch(pagination.page - 1, pageSize)}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:border-zinc-700 disabled:opacity-40 flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading || !pagination.hasMore}
+                      onClick={() => runSearch(pagination.page + 1, pageSize)}
+                      className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:border-zinc-700 disabled:opacity-40 flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      Next <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => changePageSize(Number(e.target.value))}
+                      className="px-2 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 cursor-pointer"
+                    >
+                      <option value={10}>10 / page</option>
+                      <option value={20}>20 / page</option>
+                      <option value={50}>50 / page</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
